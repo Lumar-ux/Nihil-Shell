@@ -2,12 +2,12 @@
 
 { config, lib, pkgs, ... }:
 {
-    time.timeZone = "Europe/Madrid";
-    i18n.defaultLocale = "es_ES.UTF-8";
+    time.timeZone = "Europe/Brussels";
+    i18n.defaultLocale = "en_US.UTF-8";
     console = 
     {
         font = "Lat2-Terminus16";
         useXkbConfig = true;
     };
-    services.xserver.xkb.layout = "es";
+    services.xserver.xkb.layout = "us";
 }

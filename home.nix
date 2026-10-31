@@ -31,6 +31,10 @@
 	home.stateVersion = "26.05";
 	programs.home-manager.enable = true;
 
+	# Native installers (e.g. `claude update`) write here; without this it's
+	# shadowed by the claude-code package in environment.systemPackages.
+	home.sessionPath = [ "$HOME/.local/bin" ];
+
 	home.packages = 
 	[
 		pkgs.pavucontrol

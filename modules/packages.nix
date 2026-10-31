@@ -20,6 +20,10 @@
 
     nixpkgs.config.allowUnfree = true;
 
+    # Lets generic Linux binaries (curl|sh installers, self-updaters like
+    # `claude update`) find a dynamic loader on NixOS.
+    programs.nix-ld.enable = true;
+
     fonts.packages = with pkgs; 
     [
         nerd-fonts.jetbrains-mono

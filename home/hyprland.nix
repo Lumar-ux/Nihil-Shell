@@ -137,6 +137,7 @@ in
 
 			monitor =
 			[
+				{ output = "Virtual-1"; mode = "3840x2160@60"; position = "0x0"; scale = 1; transform = 0; }
 				{ output = "HDMI-A-1"; mode = "preferred"; position = "0x0"; scale = 1; transform = 0; }
 				{ output = verticalPanel; mode = "1920x1080@165"; position = "2560x-240"; scale = 1; transform = 3; }
 				{ output = internalPanel; mode = "preferred"; position = "auto"; scale = 1; transform = 0; disabled = false; }
@@ -198,9 +199,9 @@ in
 
 				input =
 				{
-					kb_layout = "es";
+					kb_layout = "us";
 					kb_variant = "";
-					kb_model = "thinkpad";
+					kb_model = "pc105";
 					follow_mouse = 1;
 					sensitivity = 0;
 					touchpad.natural_scroll = false;
