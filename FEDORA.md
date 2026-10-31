@@ -342,3 +342,228 @@ USB sans mot de passe depuis Thunar.
   `ausearch -m avc -ts recent`.
 - **Plymouth, ReGreet et la console** ne sont plus thémés automatiquement
   par Stylix.
+
+---
+
+## 10. Machine lumaroy (ASUS ROG Strix G513QR)
+
+Complément établi le 2026-10-31 en confrontant ce guide au matériel réel et
+au dépôt (branche `nihil`). Les sections 1 à 9 restent valables, sauf là où
+celle-ci les contredit. Démarche : tout valider dans une VM Fedora, puis
+répliquer sur la machine.
+
+### 10.1 Matériel
+
+| Point | thinkpad (sections 1-9) | lumaroy | Renvoi |
+|---|---|---|---|
+| Système | — | Fedora 44 Workstation, dnf5, SELinux enforcing, GNOME + GDM | conforme à la section 1 |
+| GPU | Radeon intégrée seule | **Hybride** : Radeon Cezanne (PCI `0000:06:00.0`, porte `eDP-1` et `HDMI-A-1`) + RTX 3070 Mobile, pilote propriétaire 615.78 par akmod (PCI `0000:01:00.0`, porte `DP-1`) | 10.4 |
+| Écrans | `eDP-1` 1920x1200, `HDMI-A-1` 1440p, `DP-1` vertical | `DP-1` LG 27UP850 3840x2160@60, échelle 1 ; `eDP-1` 1920x1080, échelle 1 | 10.3 |
+| Wi-Fi / Bluetooth | rtw89 | MediaTek MT7921 (`mt7921e`) | 10.5 |
+| Empreinte | fprintd | aucun lecteur | 10.5 |
+| LED micmute | `platform::micmute` | absente | 10.5 |
+| Disque | Btrfs (zstd, scrub) | **ext4**, double démarrage Windows sur un second NVMe | 10.7 |
+| Démarrage | — | GRUB, UEFI, Secure Boot actif | ne pas toucher au chargeur |
+| Locale | `es` | `en_US.UTF-8`, clavier `us` (pc105), Europe/Brussels | déjà en place |
+| Utilisateur | `poligle` | `lumaroy` (hostname `lumaroy`), déjà dans `wheel` | 10.3 |
+
+### 10.2 Choix retenus
+
+- **Compte `lumaroy`**, non renommé : `home.username = "lumaroy"`,
+  `home.homeDirectory = "/home/lumaroy"`.
+- **`nihil.language = "en"`** : `theme/i18n.nix` ne définit que `es` et `en`.
+- **`nihil.primaryOutput = "DP-1"`**. Sans risque quand le LG est débranché :
+  `home/shell/background/Desktop.qml` replie les widgets sur le premier écran
+  présent, et `nihil-wallpaper` retombe sur le rendu de l'écran principal.
+- **GDM gardé.** `modules/regreet.nix` et l'étape 14 sont sautés. La session
+  « Hyprland (uwsm-managed) » se choisit dans GDM, GNOME reste en repli.
+- **Modules Home Manager** : kitty oui ; zsh, nvim, vscode et engineering non.
+  Les dotfiles de lumaroy restent maîtres de zsh, LazyVim et VS Code, et
+  MATLAB/FEKO/ADS ne servent pas.
+- **Nilo** : Ollama en CUDA (RTX 3070, 8 Go de VRAM). Côté NixOS, l'équivalent
+  serait `acceleration = "cuda"; integratedGpu = false;`.
+
+### 10.3 Changements dans le dépôt
+
+En plus de la section 3.
+
+1. **Écrans décrits par hôte.** `home/hyprland.nix` code en dur
+   `internalPanel = "eDP-1"`, `verticalPanel = "DP-1"` et la liste `monitor`
+   du thinkpad (`DP-1` en 1920x1080@165, `transform = 3`, position
+   `2560x-240`, plus la règle `m[DP-1]` en orientation `top`). La ligne
+   `Virtual-1` y a été ajoutée à la main pour la VM. Sur lumaroy, le LG serait
+   tourné de 270° et mal réglé. Proposition :
+   - ajouter à `outputType` (`modules/nihil.nix`, futur `nihil-options.nix`)
+     les champs `mode` (défaut `"preferred"`), `position` (défaut `"auto"`),
+     `scale` (défaut `1`) et `transform` (défaut `0`) ;
+   - ajouter `nihil.internalOutput` (défaut `"eDP-1"`) et
+     `nihil.verticalOutput` (`nullOr str`, défaut `null`) ;
+   - générer `monitor` avec `lib.mapAttrsToList` sur `nihil.outputs`, et ne
+     poser la règle d'orientation que si `verticalOutput` est défini.
+
+   Chaque hôte décrit alors ses écrans, thinkpad et vm compris.
+2. **Nom d'utilisateur surchargeable.** `home.nix` fixe
+   `home.username = "poligle"` et `home.homeDirectory = "/home/poligle"` :
+   une cible qui met `lumaroy` échoue sur une définition en conflit. Les
+   passer en `lib.mkDefault`, ou les déplacer dans les hôtes.
+3. **Imports conditionnels.** Sortir `./home/zsh.nix`, `./home/nvim.nix`,
+   `./home/vscode.nix` et `./home/engineering.nix` de la liste commune de
+   `home.nix`, et ne les importer que pour les cibles NixOS (une liste
+   `home/nixos-only.nix`, ou un test sur `nihil.platform`). Vérifié : aucun
+   autre module ne lit `programs.zsh`, `programs.neovim` ni `programs.vscode`.
+4. **L'hôte `vm` aussi.** Le point 2 de la section 3.2 et l'étape 7 ne parlent
+   que de thinkpad. `hosts/vm/default.nix` a besoin du même
+   `home-manager.users.poligle.nihil = { … };`, et
+   `nixosConfigurations.vm` doit encore évaluer à l'étape 7.
+5. **Clavier et locale par hôte.** Dans ce fork, `modules/locale.nix`
+   (Brussels, `en_US`, `us`) et le bloc `input` de `home/hyprland.nix`
+   (`kb_layout = "us"`, `kb_model = "pc105"`) ont été changés pour tous les
+   hôtes, thinkpad compris. Les déplacer dans les hôtes évite des conflits à
+   chaque mise à jour venant de poligle.
+6. **Nilo** : `flake` (`home/nilo/default.nix`) n'est qu'un texte inséré dans
+   le prompt (`home/nilo/agent.py`, ligne ~970). `"~/nihil"` suffit, le `~`
+   n'a pas à être développé.
+7. **Deux cibles Home Manager**, mêmes modules, seules les valeurs `nihil`
+   changent : `lumaroy@fedora-vm` (`Virtual-1` en 3840x2160, comme
+   `hosts/vm`) et `lumaroy@lumaroy` :
+
+```nix
+# home.nix by poligle (lumaroy)
+
+{ config, lib, pkgs, ... }:
+{
+	targets.genericLinux.enable = true;
+	targets.genericLinux.gpu.enable = true;    # Mesa de la Radeon, voir 10.4
+	fonts.fontconfig.enable = true;
+
+	home.username = "lumaroy";
+	home.homeDirectory = "/home/lumaroy";
+
+	programs.kitty.package = null;              # kitty natif, voir 10.6
+
+	nihil =
+	{
+		platform = "fedora";
+		hostName = "lumaroy";
+		primaryOutput = "DP-1";
+		wallpaper = "night";
+		language = "en";
+		# mode et position : champs proposés au point 1
+		outputs =
+		{
+			"DP-1"  = { width = 3840; height = 2160; mode = "3840x2160@60"; position = "0x0"; };
+			"eDP-1" = { width = 1920; height = 1080; position = "3840x229"; };
+		};
+		nilo.enable = true;
+	};
+}
+```
+
+   `HDMI-A-1` est vu comme connecté mais n'est pas utilisé sous GNOME : à
+   ajouter à `outputs` seulement s'il sert, pour ne pas rendre des fonds
+   d'écran inutiles.
+
+### 10.4 GPU hybride
+
+- **Rendu sur la Radeon**, la NVIDIA ne fait qu'afficher `DP-1`. Les numéros
+  `card0`/`card1` ne sont pas stables d'un démarrage à l'autre, et les
+  chemins `/dev/dri/by-path/…` contiennent des `:`, qui est le séparateur de
+  `AQ_DRM_DEVICES`. D'où des liens stables, dans
+  `/etc/udev/rules.d/61-nihil-gpu.rules` :
+
+  ```
+  KERNEL=="card*", SUBSYSTEM=="drm", KERNELS=="0000:06:00.0", SYMLINK+="dri/amd-igpu"
+  KERNEL=="card*", SUBSYSTEM=="drm", KERNELS=="0000:01:00.0", SYMLINK+="dri/nvidia-dgpu"
+  ```
+
+- Dans `~/.config/uwsm/env-hyprland` (générable par `xdg.configFile`) :
+  `export AQ_DRM_DEVICES=/dev/dri/amd-igpu:/dev/dri/nvidia-dgpu`. Pas dans
+  `hyprland.lua` : la variable est lue au lancement de Hyprland, avant la
+  config.
+- **Binaires Nix** (Quickshell, awww, hyprshot…) : ils tournent sur la
+  Radeon, donc `targets.genericLinux.gpu.enable = true;` (Mesa) suffit. Le
+  module du Home Manager 26.05 a aussi des options `nvidia.*` : **ne pas les
+  activer**, elles épinglent la version exacte du pilote (615.78.08
+  aujourd'hui) et cassent à chaque mise à jour d'akmod-nvidia.
+- `nvidia_drm modeset=1 fbdev=1` sont déjà actifs.
+- La VM ne teste rien de cette section.
+
+### 10.5 Ce qui ne s'applique pas
+
+| Élément du guide | Sur lumaroy |
+|---|---|
+| `modules/network.nix` : options rtw89 | Puce MT7921 : pas de `rtw89.conf`. Wi-Fi powersave et Bluetooth éteint au démarrage restent valables. |
+| `modules/hardware.nix` : empreinte, authselect, `pam_exec` + `lid-closed`, étape 12 | Pas de lecteur : tout est sauté. Le drop-in logind du couvercle (`HandleLidSwitch*=ignore`) reste nécessaire, car `home/hyprland.nix` gère lui-même le couvercle (fermé avec un écran externe : `eDP-1` éteint ; sinon verrouillage). |
+| LED micmute : règle udev 90-micmute, `mic-led-sync` | Pas de LED. Le `mic-led-sync` de l'`exec-once` sortira en erreur (`/sys/class/leds/platform::micmute` absent), sans autre effet ; `osd-mic` l'appelle avec `\|\| true`. À rendre conditionnel pour un journal propre. |
+| `hosts/thinkpad` : Btrfs, scrub ; section 9 : snapper | ext4 : rien de tout ça. Voir 10.7. |
+| `modules/regreet.nix`, étape 14 | GDM gardé. |
+| `modules/nilo.nix` : `ollama-vulkan`, `OLLAMA_IGPU_ENABLE=1` | Installeur officiel d'Ollama (CUDA par le pilote de l'hôte), sans `OLLAMA_IGPU_ENABLE`. Le reste du drop-in et la règle polkit restent valables. |
+| `modules/users.nix` : `usermod`, `chsh` | `sudo usermod -aG video,input,wireshark lumaroy` (déjà dans `wheel`). `chsh` inutile : zsh est déjà le shell de connexion. |
+| Section 6 : alias de `home/zsh.nix` | Module non importé : recopier `nrebuild`, `nupdate`, `ncheck` dans `~/.aliases` (dotfiles), avec la cible `lumaroy@lumaroy`. |
+
+### 10.6 Cohabitation avec les dotfiles (stow)
+
+- **kitty** : `~/.config/kitty` est un lien vers
+  `~/dotfiles/home/.config/kitty`. Home Manager écrirait donc dans le dépôt
+  dotfiles. Avant le premier switch : supprimer ce lien (la config reste dans
+  le dépôt), et exclure kitty de stow (`.stow-local-ignore`, ou retirer
+  `home/.config/kitty`) pour qu'un `stow --restow` ne le recrée pas.
+- **Binaire kitty** : celui en place vient de l'installeur officiel
+  (`~/.local/kitty.app`, lien `~/.local/bin/kitty`), et `home.sessionPath`
+  met `~/.local/bin` en tête : c'est lui que lance `SUPER`. D'où
+  `programs.kitty.package = null;` (accepté par le Home Manager 26.05) : HM
+  ne gère que `kitty.conf`, et le kitty natif utilise les pilotes de Fedora
+  sans enveloppe GPU.
+- **zsh** : `~/.zshenv` fixe `ZDOTDIR=~/.config/zsh`. Sans `home/zsh.nix`,
+  plus rien ne charge les variables de Home Manager : sourcer
+  `hm-session-vars.sh` depuis `~/.config/zsh/local.zsh` (dans
+  `~/.nix-profile/etc/profile.d/` ou
+  `~/.local/state/nix/profiles/home-manager/home-path/etc/profile.d/`, selon
+  le profil).
+- `~/.zshenv`, `~/.zshrc`, `~/.gitconfig`, `~/.config/nvim` et
+  `~/.config/Code` ne sont pas touchés tant que zsh, nvim et vscode ne sont
+  pas importés. Un premier `home-manager build` liste les fichiers qui
+  entreraient en conflit.
+
+### 10.7 VM d'abord, machine ensuite
+
+**VM**
+
+- Fedora 44 Workstation dans libvirt, avec la même config graphique que la
+  VM NixOS existante : SPICE avec `gl` sur le render node de la Radeon
+  (`/dev/dri/by-path/pci-0000:06:00.0-render`) et vidéo virtio `accel3d`.
+  Sans 3D, Hyprland ne démarre pas.
+- La rendre proche de la machine **avant** le premier switch : GNOME + GDM
+  par défaut, dotfiles déployés avec stow, paquets de `packages/fedora.txt`.
+  Sinon les conflits de 10.6 n'apparaissent que sur la machine.
+- Snapshot de la VM avant les étapes 9 (fichiers `/etc`) et 13 (Plymouth).
+- Écrire les fichiers `/etc` dans `fedora/etc/` avec un script idempotent
+  (section 9), et ne les appliquer que par ce script, dès la VM : c'est ce
+  qui rend la réplication fidèle.
+- Validé par la VM : Nix + Home Manager standalone, refactorisation
+  `osConfig`, Hyprland du COPR avec la config Lua, PAM de hyprlock, SELinux,
+  Ollama sur CPU, cohabitation avec les dotfiles.
+- Non validé : 10.4 (NVIDIA, `DP-1`), MT7921, batterie et couvercle,
+  Secure Boot avec akmod, double démarrage.
+
+**Machine** (ext4 : pas de snapshot)
+
+- Avant de commencer : `sudo tar -czf ~/etc-avant-nihil.tar.gz /etc`, et
+  noter le dernier numéro de `dnf history list`.
+- Garder GDM et la session GNOME en repli tant que Hyprland n'est pas validé
+  sur les deux GPU.
+- Retour arrière : génération précédente de Home Manager
+  (`home-manager generations`), `sudo dnf history undo <numéro>`, puis `/etc`
+  depuis l'archive.
+
+### 10.8 À vérifier
+
+- COPR Hyprland : chroot `fedora-44` disponible, et version qui lit la
+  config Lua (`hyprctl version`). Sinon Hyprland depuis Nix (section 4), en
+  tenant compte de 10.4.
+- Determinate Nix : l'installeur gère lui-même `/etc/nix/nix.conf` ; les
+  réglages personnels (`auto-optimise-store`) iraient alors dans
+  `/etc/nix/nix.custom.conf`. À confirmer dans sa documentation.
+- Fréquence réelle de `eDP-1` (`hyprctl monitors`), et `HDMI-A-1` s'il sert.
+- Que la règle udev de 10.4 crée bien `/dev/dri/amd-igpu` et
+  `/dev/dri/nvidia-dgpu` (`ls -l /dev/dri`).
