@@ -1,0 +1,9 @@
+# 61-nihil-gpu.rules by poligle (fedora, g513)
+#
+# Stable names for the two GPUs of the ASUS G513QR: card0 and card1 can
+# swap between boots, and the /dev/dri/by-path names hold ':', which is
+# the separator of AQ_DRM_DEVICES (hosts/fedora/g513.nix). Radeon first:
+# Hyprland renders on it, the RTX 3070 only drives DP-1.
+
+KERNEL=="card*", SUBSYSTEM=="drm", KERNELS=="0000:06:00.0", SYMLINK+="dri/amd-igpu"
+KERNEL=="card*", SUBSYSTEM=="drm", KERNELS=="0000:01:00.0", SYMLINK+="dri/nvidia-dgpu"

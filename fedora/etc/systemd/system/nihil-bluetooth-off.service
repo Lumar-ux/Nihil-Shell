@@ -1,0 +1,17 @@
+# nihil-bluetooth-off.service by poligle (fedora)
+#
+# bluetooth-off-at-boot (modules/network.nix): the adapter starts powered
+# off; the bar or blueman turns it on.
+
+[Unit]
+Description=Power off Bluetooth adapter at boot
+After=bluetooth.service
+Requires=bluetooth.service
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/bin/sleep 3
+ExecStart=/usr/bin/bluetoothctl power off
+
+[Install]
+WantedBy=multi-user.target

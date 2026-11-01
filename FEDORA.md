@@ -164,7 +164,7 @@ EGL/GL.
 
 | Composant | Source | Pourquoi |
 |---|---|---|
-| Hyprland, hyprlock, hypridle, xdg-desktop-portal-hyprland, uwsm | **dnf** (COPR `solopasha/hyprland` pour des versions récentes) | Session, PAM (`/etc/pam.d/hyprlock`) et portails intégrés au système, sans souci de GL |
+| Hyprland, hyprlock, xdg-desktop-portal-hyprland, uwsm | **dnf** (COPR `sdegler/hyprland` : Fedora 44 n'en a pas) | Session, PAM (`/etc/pam.d/hyprlock`) et portails intégrés au système, sans souci de GL |
 | Quickshell, kitty, awww | **Nix**, avec l'enveloppe GPU de Home Manager | Versions de nixpkgs exactes |
 | Config (Lua Hyprland, hyprlock, hypridle…) | **Home Manager** | Inchangée |
 
@@ -190,15 +190,19 @@ Pour le GPU des binaires Nix, deux options :
 
 ## 5. Équivalents Fedora des modules système
 
-Paquets de base :
+Paquets de base (`fedora/install.sh` les installe, section 10.9) :
 
 ```sh
-sudo dnf copr enable solopasha/hyprland
-sudo dnf install hyprland hyprlock hypridle uwsm xdg-desktop-portal-hyprland \
-    zsh blueman thunar thunar-archive-plugin thunar-volman gvfs tumbler \
-    lxqt-policykit fprintd-pam wireshark greetd cage brightnessctl playerctl \
-    upower udisks2 openssh-server qt6ct wev
+# Fedora 44 n'a pas Hyprland ; solopasha/hyprland s'est arrêté à 0.49.
+sudo dnf copr enable sdegler/hyprland
+sudo dnf install hyprland hyprlock uwsm xdg-desktop-portal-hyprland \
+    blueman Thunar thunar-archive-plugin thunar-volman gvfs tumbler \
+    lxqt-policykit wireshark brightnessctl playerctl qt6ct wev
+# selon les choix : fprintd-pam (empreinte), greetd cage (ReGreet), openssh-server
 ```
+
+hypridle vient de Home Manager (`home/hypridle.nix`) ; zsh, upower et
+udisks2 sont déjà dans Fedora Workstation.
 
 | Module NixOS | Action sur Fedora |
 |---|---|
@@ -537,9 +541,8 @@ En plus de la section 3.
   par défaut, dotfiles déployés avec stow, paquets de `packages/fedora.txt`.
   Sinon les conflits de 10.6 n'apparaissent que sur la machine.
 - Snapshot de la VM avant les étapes 9 (fichiers `/etc`) et 13 (Plymouth).
-- Écrire les fichiers `/etc` dans `fedora/etc/` avec un script idempotent
-  (section 9), et ne les appliquer que par ce script, dès la VM : c'est ce
-  qui rend la réplication fidèle.
+- Appliquer les fichiers `/etc` uniquement par `fedora/install.sh vm`
+  (10.9), dès la VM : c'est ce qui rend la réplication fidèle.
 - Validé par la VM : Nix + Home Manager standalone, refactorisation
   `osConfig`, Hyprland du COPR avec la config Lua, PAM de hyprlock, SELinux,
   Ollama sur CPU, cohabitation avec les dotfiles.
@@ -548,22 +551,71 @@ En plus de la section 3.
 
 **Machine** (ext4 : pas de snapshot)
 
-- Avant de commencer : `sudo tar -czf ~/etc-avant-nihil.tar.gz /etc`, et
-  noter le dernier numéro de `dnf history list`.
+- `fedora/install.sh g513` sauvegarde lui-même ce qu'il remplace (10.9).
+  Pas d'archive de tout `/etc` dans le dossier personnel : elle contiendrait
+  `/etc/shadow`.
 - Garder GDM et la session GNOME en repli tant que Hyprland n'est pas validé
   sur les deux GPU.
 - Retour arrière : génération précédente de Home Manager
-  (`home-manager generations`), `sudo dnf history undo <numéro>`, puis `/etc`
-  depuis l'archive.
+  (`home-manager generations`), `sudo dnf history undo <numéro>` (numéro noté
+  dans la sauvegarde), puis les fichiers de la sauvegarde.
 
 ### 10.8 À vérifier
 
-- COPR Hyprland : chroot `fedora-44` disponible, et version qui lit la
-  config Lua (`hyprctl version`). Sinon Hyprland depuis Nix (section 4), en
-  tenant compte de 10.4.
+- COPR Hyprland, vérifié le 2026-11-01 : `solopasha/hyprland` est abandonné
+  (0.49, rien pour Fedora 44) ; `sdegler/hyprland` a Hyprland 0.56.2,
+  hyprlock 0.9.6, uwsm 0.24.3 et xdg-desktop-portal-hyprland 1.5.0 pour
+  fedora-44-x86_64. `home/hyprland.nix` est écrit pour la 0.55.4 de nixpkgs :
+  vérifier dans la VM que la config Lua passe sur la 0.56
+  (`journalctl --user -b | grep -i hypr`, `hyprctl configerrors`). Sinon
+  Hyprland depuis Nix (section 4), en tenant compte de 10.4.
 - Determinate Nix : l'installeur gère lui-même `/etc/nix/nix.conf` ; les
   réglages personnels (`auto-optimise-store`) iraient alors dans
   `/etc/nix/nix.custom.conf`. À confirmer dans sa documentation.
 - Fréquence réelle de `eDP-1` (`hyprctl monitors`), et `HDMI-A-1` s'il sert.
 - Que la règle udev de 10.4 crée bien `/dev/dri/amd-igpu` et
   `/dev/dri/nvidia-dgpu` (`ls -l /dev/dri`).
+
+### 10.9 Partie système : `fedora/`
+
+Ce que les modules NixOS faisaient dans `/etc`, versionné et appliqué par un
+script idempotent :
+
+```
+fedora/
+├── install.sh                       COPR, paquets, /etc, services, groupes
+├── etc/                             commun à toutes les machines Fedora
+│   ├── NetworkManager/conf.d/90-nihil-wifi.conf        network.nix (powersave)
+│   ├── systemd/logind.conf.d/90-nihil-lid.conf         hardware.nix (couvercle)
+│   ├── systemd/system/nihil-bluetooth-off.service      network.nix
+│   ├── systemd/system/ollama.service.d/90-nihil.conf   nilo.nix
+│   └── polkit-1/rules.d/50-nihil-{mount,ollama}.rules  storage.nix, nilo.nix
+└── machines/g513/etc/udev/rules.d/61-nihil-gpu.rules   10.4
+```
+
+```sh
+fedora/install.sh --dry-run g513     # montre les changements, ne touche à rien
+fedora/install.sh g513               # ou vm ; --sshd pour activer sshd
+```
+
+- Le nom de machine est celui d'un fichier de `hosts/fedora/` ;
+  `fedora/machines/<machine>/etc` s'ajoute à `fedora/etc`.
+- Chaque fichier remplacé est d'abord copié dans
+  `/var/lib/nihil/backup-<date>/etc/`, avec la liste des fichiers créés
+  (`created`) et l'historique dnf d'avant (`dnf-history-before`).
+- Rechargé tout de suite : systemd (`daemon-reload`), NetworkManager, règles
+  udev. Au redémarrage : logind (le redémarrer fermerait toutes les
+  sessions) et les noms `/dev/dri/amd-igpu`, `/dev/dri/nvidia-dgpu`.
+  Groupes : à la prochaine connexion.
+- Groupes `video` et `wireshark`. Pas `input` (LED micmute du ThinkPad
+  seulement) : il donne à tout programme la lecture de tous les claviers.
+- `AQ_DRM_DEVICES` est écrit par Home Manager dans
+  `~/.config/uwsm/env-hyprland` (`hosts/fedora/g513.nix`).
+- Laissés de côté exprès : GDM reste, pas de Plymouth, pas d'empreinte ni
+  de PAM, et Ollama lui-même : le script affiche la commande de son
+  installeur, à lire avant de l'exécuter.
+- Effet sur GNOME : avec `90-nihil-lid.conf`, fermer le couvercle ne met
+  plus en veille, dans GNOME non plus.
+- Nilo sait où il tourne : `home/nilo/default.nix` lui passe `platform` et la
+  commande d'application (`home-manager switch --flake ~/nihil#lumaroy@lumaroy`
+  sur Fedora, `nixos-rebuild` sur NixOS).

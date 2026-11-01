@@ -6,6 +6,12 @@
 
 { config, lib, pkgs, ... }:
 {
+	# Hyprland renders on the Radeon and hands DP-1 to the RTX 3070. uwsm
+	# reads this before starting Hyprland, which needs it at launch; the
+	# names come from fedora/machines/g513/etc/udev/rules.d/61-nihil-gpu.rules.
+	xdg.configFile."uwsm/env-hyprland".text =
+		"export AQ_DRM_DEVICES=/dev/dri/amd-igpu:/dev/dri/nvidia-dgpu\n";
+
 	nihil =
 	{
 		hostName = "lumaroy";

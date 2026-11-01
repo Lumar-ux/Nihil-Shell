@@ -1,0 +1,13 @@
+// 50-nihil-ollama.rules by poligle (fedora)
+//
+// modules/nilo.nix: Nilo starts Ollama when it finds it stopped, so wheel
+// users may start or restart this one unit without a password.
+
+polkit.addRule(function(action, subject)
+{
+    if (action.id == "org.freedesktop.systemd1.manage-units"
+        && action.lookup("unit") == "ollama.service"
+        && (action.lookup("verb") == "start" || action.lookup("verb") == "restart")
+        && subject.isInGroup("wheel"))
+        return polkit.Result.YES;
+});

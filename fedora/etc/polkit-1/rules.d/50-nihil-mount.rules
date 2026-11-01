@@ -1,0 +1,17 @@
+// 50-nihil-mount.rules by poligle (fedora)
+//
+// modules/storage.nix: wheel users at the seat mount drives from Thunar
+// without a password.
+
+polkit.addRule(function(action, subject)
+{
+    var mountActions =
+    [
+        "org.freedesktop.udisks2.filesystem-mount",
+        "org.freedesktop.udisks2.filesystem-mount-system"
+    ];
+    if (mountActions.indexOf(action.id) >= 0 && subject.local && subject.active && subject.isInGroup("wheel"))
+    {
+        return polkit.Result.YES;
+    }
+});
