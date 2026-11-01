@@ -64,5 +64,34 @@
 				}
 			];
 		};
+
+		# NIHIL on Fedora, Home Manager standalone (FEDORA.md):
+		#   home-manager switch --flake ~/nihil#lumaroy@lumaroy
+		homeConfigurations =
+		let
+			fedora = machine: home-manager.lib.homeManagerConfiguration
+			{
+				pkgs = import nixpkgs
+				{
+					system = "x86_64-linux";
+					config.allowUnfree = true;
+				};
+				extraSpecialArgs = { inherit inputs; };
+				modules =
+				[
+					stylix.homeModules.stylix
+					./modules/nihil-options.nix
+					./modules/stylix.nix
+					./hosts/fedora/default.nix
+					./hosts/fedora/lumaroy.nix
+					machine
+					./home.nix
+				];
+			};
+		in
+		{
+			"lumaroy@lumaroy" = fedora ./hosts/fedora/g513.nix;
+			"lumaroy@fedora-vm" = fedora ./hosts/fedora/vm.nix;
+		};
 	};
 }
