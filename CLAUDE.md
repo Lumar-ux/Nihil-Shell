@@ -14,6 +14,13 @@ NIHIL: a personal NixOS flake (Flakes + Home Manager + Stylix) whose centrepiece
     sudo nixos-rebuild switch --flake .#<host>        # apply (or `nh os switch`)
     nix flake update                                  # bump inputs
 
+    # Fedora targets (Home Manager standalone, FEDORA.md)
+    home-manager build  --flake .#lumaroy@lumaroy     # or lumaroy@fedora-vm
+    home-manager switch --flake .#lumaroy@lumaroy -b hm-backup
+
+    # A refactor that must not change a NixOS host: its drvPath stays the same
+    nix eval --raw .#nixosConfigurations.<host>.config.system.build.toplevel.drvPath
+
     # Nilo agent tests (fake Ollama, fake ddgr, throwaway git repo; no network)
     python3 -m unittest home/nilo/test_agent.py
     cd home/nilo && python3 -m unittest test_agent.AgentTest.test_stop   # single test
@@ -22,14 +29,24 @@ NIHIL: a personal NixOS flake (Flakes + Home Manager + Stylix) whose centrepiece
     journalctl --user -u nihil-shell -f
     nihil-ipc drawers toggle launcher|dashboard|panel ; nihil-ipc glyph test true
 
-Hosts in flake.nix: `thinkpad` (the real laptop) and `vm` (a QEMU guest, output `Virtual-1`). The shell aliases (`nrebuild`, `nupdate`, `ncheck` in home/zsh.nix) and Nilo's `flake` setting hardcode `~/nixos-config#thinkpad`. This checkout lives at `~/nihil`, so pass the path and host explicitly.
+Targets in flake.nix:
+
+- `nixosConfigurations`: `thinkpad` (the real laptop) and `vm` (a QEMU guest, output `Virtual-1`).
+- `homeConfigurations`: `lumaroy@lumaroy` (ASUS G513QR on Fedora) and `lumaroy@fedora-vm` (its test VM), built from `hosts/fedora/`: `default.nix` is the Fedora layer, `lumaroy.nix` the user's choices, `g513.nix` and `vm.nix` the outputs of each machine. The system side on Fedora (Hyprland, hyprlock's PAM file, uwsm, /etc) is imperative: FEDORA.md.
+
+The shell aliases (`nrebuild`, `nupdate`, `ncheck` in home/zsh.nix) hardcode `~/nixos-config#thinkpad`, and `nihil.nilo.flake` defaults to `~/nixos-config`. This checkout lives at `~/nihil`, so pass the path and target explicitly.
 
 ## Architecture
 
 - **One source of design truth:** `theme/nihil.nix` is plain data (palette, base16, fonts, frame geometry, window gaps, motion). Stylix, Hyprland, hyprlock, the greeter, Plymouth, editors and the shell all read it. Change tokens there, never in a consumer.
-- **`nihil.*` options** (`modules/nihil.nix`, `modules/nilo.nix`) are system-level options. Each host sets `outputs`, `primaryOutput`, `language` and `nilo`. Home Manager modules reach them through `osConfig.nihil`. Read-only derived options: `tokens`, `strings`, `sounds`, `wallpapers`, `fonts`. Assertions check that `primaryOutput` is in `outputs`, that `wallpaper` exists in `wallpapers/`, and that all languages have identical keys.
+- **`nihil.*` options** are declared once, in `modules/nihil-options.nix`, with nothing NixOS-specific, so both NixOS and Home Manager import it. On NixOS the host sets them and `modules/nihil.nix` hands the settable ones to every Home Manager user (`home-manager.sharedModules`); a Fedora target sets them itself. Home Manager modules read `config.nihil`, never `osConfig`. Each host sets `outputs`, `primaryOutput`, `language` and `nilo`.
+  - `outputs` also carry their Hyprland `mode`, `position`, `scale` and `transform`; `internalOutput` (lid handling) and `verticalOutput` are options. No module names a connector.
+  - `hostPrograms` (`systemctl`, `journalctl`, `hyprctl`, `uwsm`, `hyprlock`): binaries that must be the host's, because they talk to its PID 1 or compositor or need its PAM file. System packages on NixOS, `/usr/bin` when `platform = "fedora"`.
+  - `nihil.apps.{zsh,nvim,vscode,engineering}.enable` (declared in those modules, on by default) let a host keep its own dotfiles.
+  - Read-only derived options: `tokens`, `strings`, `sounds`, `wallpapers`, `fonts`. Assertions check that `primaryOutput` and `verticalOutput` are in `outputs`, that `wallpaper` exists in `wallpapers/`, and that all languages have identical keys.
+  - `modules/nilo.nix` only runs Ollama on NixOS; Nilo's options are in `nihil-options.nix` too.
 - **i18n:** every user-facing string lives in `theme/i18n.nix`, one block per language. Every block must define the same keys, or evaluation fails. To add a language, add a block and extend the `language` enum.
-- **Shell** (`home/shell/`, run as the `nihil-shell` user service): `home/shell.nix` *generates* `Tokens.qml`, `Config.qml` and `Lang.qml` at build time. They do not exist in the tree. `home/shell.nix` also injects every external program as a Nix store path, so the shell never relies on `$PATH`. New external tools must be added there, not called by bare name from QML. QML imports use the `qs.*` module root (`qs.services`, `qs.frame`, …). `shell.qml` force-instantiates the singleton services that must run from startup.
+- **Shell** (`home/shell/`, run as the `nihil-shell` user service): `home/shell.nix` *generates* `Tokens.qml`, `Config.qml` and `Lang.qml` at build time. They do not exist in the tree. `home/shell.nix` also injects every external program as an absolute path (a Nix store path, or one from `nihil.hostPrograms` / `nihil.terminal`), so the shell never relies on `$PATH`. New external tools must be added there, not called by bare name from QML. QML imports use the `qs.*` module root (`qs.services`, `qs.frame`, …). `shell.qml` force-instantiates the singleton services that must run from startup.
   - `frame/`: a single path forms the screen frame, with the drawers drawn as bumps of it (`Geometry.js`), plus the bar and the Glyph edge light.
   - `drawers/`, `services/`, `components/`, `nilo/`: see the README's Shell section.
   - Keyboard-taking drawers use `WlrKeyboardFocus.OnDemand` with `HyprlandFocusGrab`. Do not use `Exclusive`: Hyprland drops focus grabs when a layer goes exclusive.

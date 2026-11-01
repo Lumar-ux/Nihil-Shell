@@ -112,40 +112,54 @@ its grey variant; the shell shows app icons desaturated.
 
 ## Install
 
-The repository is a NixOS flake with one host, `thinkpad`. To try it on another machine,
-follow [Cloning to a new machine](#cloning-to-a-new-machine): the only host-specific
-NIHIL settings are the outputs in `hosts/<name>/default.nix`.
+The repository is a NixOS flake with two hosts, `thinkpad` and `vm` (a QEMU guest). To
+try it on another machine, follow [Cloning to a new machine](#cloning-to-a-new-machine):
+the only host-specific NIHIL settings are the outputs in `hosts/<name>/default.nix`.
+On another distribution, the desktop runs from Home Manager alone: see
+[FEDORA.md](FEDORA.md) and the `homeConfigurations` built from `hosts/fedora/`.
 
 ```nix
 nihil =
 {
     primaryOutput = "eDP-1";
+    verticalOutput = "DP-1";  # its workspaces stack windows top to bottom
     wallpaper = "night";
     language = "es";          # or "en"
     outputs =
     {
         "eDP-1"    = { width = 1920; height = 1200; };
-        "HDMI-A-1" = { width = 2560; height = 1440; };
-        "DP-1"     = { width = 1080; height = 1920; bar = false; };   # vertical, no bar
+        "HDMI-A-1" = { width = 2560; height = 1440; position = "0x0"; };
+        "DP-1"     = { width = 1080; height = 1920; bar = false;      # vertical, no bar
+                       mode = "1920x1080@165"; position = "2560x-240"; transform = 3; };
     };
 };
 ```
 
 Output sizes are logical (after rotation): the wallpaper renders are made at exactly
-that size. The first build downloads the Google Fonts source and renders every
+that size. `mode`, `position`, `scale` and `transform` go to Hyprland as they are
+(defaults: `"preferred"`, `"auto"`, `1`, `0`). The first build downloads the Google Fonts source and renders every
 wallpaper (a few seconds each).
 
 ---
 
 ## Options
 
-All of them live under `nihil.*` ([`modules/nihil.nix`](modules/nihil.nix)).
+All of them live under `nihil.*` ([`modules/nihil-options.nix`](modules/nihil-options.nix)),
+which NixOS and Home Manager both import: a NixOS host sets them once and
+[`modules/nihil.nix`](modules/nihil.nix) hands them to Home Manager.
 
 | Option          | Default    | What it does                                                    |
 |-----------------|------------|-----------------------------------------------------------------|
 | `language`      | `"es"`     | `"es"` or `"en"`: shell, lock screen, greeter, script messages and their dates |
-| `outputs`       | —          | Screens of the host: logical size, whether it has the bar, dot pitch |
+| `outputs`       | —          | Screens of the host: logical size, whether it has the bar, dot pitch, and Hyprland's mode, position, scale and transform |
 | `primaryOutput` | —          | Screen for the desktop widgets, lock and login backgrounds      |
+| `internalOutput` | `"eDP-1"` | The laptop panel, turned off with the lid closed and another screen on |
+| `verticalOutput` | `null`    | A portrait screen, whose workspaces stack windows top to bottom |
+| `platform`      | `"nixos"`  | `"nixos"` or `"fedora"`: where `hostPrograms` come from        |
+| `hostPrograms`  | system packages, or `/usr/bin` | `systemctl`, `journalctl`, `hyprctl`, `uwsm` and `hyprlock` of the host |
+| `hostName`      | `networking.hostName` | Host name Nilo works with                            |
+| `terminal`      | `null`     | Terminal the shell opens; `null` is Home Manager's kitty        |
+| `apps.<name>.enable` | `true` | `zsh`, `nvim`, `vscode`, `engineering`: off to keep your own dotfiles |
 | `wallpaper`     | `"night"`  | Default wallpaper, a file name in `wallpapers/`                 |
 | `soundPack`     | `"nihil"`  | `"nihil"` (`sounds/nihil`) or `"classic"` (the earlier sounds)  |
 | `trayHidden`    | `[ "nm-applet" "blueman" ]` | Tray items to hide, by part of their id or title. The Wi-Fi and Bluetooth applets keep running for password and pairing prompts |
@@ -155,6 +169,8 @@ All of them live under `nihil.*` ([`modules/nihil.nix`](modules/nihil.nix)).
 | `nilo.models`   | Qwen 3.5, 0.8B to 35B-A3B | Models offered in Nilo's settings |
 | `nilo.contextLength` | `16384` | Context window, in tokens |
 | `nilo.searxng`  | `null`     | A SearXNG instance for web searches instead of DuckDuckGo |
+| `nilo.ollamaUrl` | `http://127.0.0.1:11434` | Where Nilo reaches Ollama (on NixOS, from `services.ollama`) |
+| `nilo.flake`    | `"~/nixos-config"` | Where Nilo says this configuration lives          |
 
 Read-only: `tokens` (the design tokens), `strings` (the selected language), `sounds`,
 `wallpapers` and `fonts`. To add a language, add a block to
@@ -322,8 +338,10 @@ nixos-config/
 │   ├── dotmatrix.py  photo → LED matrix (wallpapers.nix runs it per output)
 │   ├── plymouth.*    boot splash frames and theme
 │   └── art/          LED maps of the NixOS snowflake (19 for fastfetch, 29 for boot)
-├── hosts/thinkpad/   hardware, hostname, NIHIL outputs
-├── modules/          system modules (nihil.nix, nilo.nix, stylix, plymouth, regreet, …)
+├── hosts/            thinkpad/ and vm/: hardware, hostname, NIHIL outputs;
+│                     fedora/: Home Manager standalone targets (FEDORA.md)
+├── modules/          nihil-options.nix (shared by NixOS and Home Manager) and the
+│                     system modules (nihil.nix, nilo.nix, stylix, plymouth, regreet, …)
 ├── home/             Home Manager: shell/, nilo/ (Nilo's agent), lock/, hyprland, hyprlock, …
 ├── sounds/           interface sounds (nihil/ is the NIHIL pack)
 ├── tools/            brand.py (logo, favicons, site images), sounds.py, snowflake.py
@@ -471,7 +489,8 @@ engineering installs (`~/eda`, `~/.config/eda/licenses.env`).
   `$XDG_RUNTIME_DIR`. The cursor stays visible on the lock screen so the buttons can be
   clicked; the media keys work as well.
 - **Pre-existing files:** if a file Home Manager wants to manage already exists, it is
-  renamed to `*.hm-backup` instead of aborting the activation.
+  renamed to `*.hm-backup` instead of aborting the activation. With Home Manager
+  standalone (Fedora), pass `-b hm-backup` to `home-manager switch` for the same.
 - **Own scripts:** packaged with `writeShellScriptBin` and explicit dependencies:
   `osd-volume`, `osd-brightness`, `osd-mic`, `mic-led-sync`, `lock-screen`, `power-off`,
   `nihil-wallpaper`, `nihil-ipc`.
