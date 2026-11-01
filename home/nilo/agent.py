@@ -397,7 +397,8 @@ SCHEMAS = {
         ["url"])),
     "system_info": ("system", schema(
         "system_info",
-        "Facts about this computer: NixOS version and generation, kernel, CPU, memory, disk, battery and uptime.")),
+        "Facts about this computer: system version (and NixOS generation), kernel, CPU, memory, disk, battery and "
+        "uptime.")),
     "git_status": ("git", schema(
         "git_status",
         "State of the user's repository: branch, changed files, a short diff and the latest commit messages.")),
@@ -884,7 +885,7 @@ MONTHS = {
 
 PROMPT = {
     "es": {
-        "intro": "Eres Nilo, el asistente de NIHIL, el escritorio de {user} en NixOS. Funcionas en este ordenador con "
+        "intro": "Eres Nilo, el asistente de NIHIL, el escritorio de {user} en {os}. Funcionas en este ordenador con "
                  "{model} (Ollama): lo que se habla aquí no sale de él{web}.",
         "webOut": ", salvo las búsquedas que hagas en internet",
         "now": "Ahora es {weekday}, {day} de {month} de {year}, las {time}.",
@@ -897,7 +898,7 @@ PROMPT = {
                "sepas, busca con web_search y lee con open_url si hace falta. Termina con las fuentes como enlaces "
                "Markdown.",
         "noWeb": "No tienes acceso a internet: si algo puede haber cambiado, dilo.",
-        "system": "system_info te da datos reales de este ordenador (NixOS, memoria, disco, batería).",
+        "system": "system_info te da datos reales de este ordenador ({os}, memoria, disco, batería).",
         "git": "El repositorio es {repo}. Si te piden guardar o subir los cambios: mira git_status, escribe un "
                "mensaje de commit breve en el estilo de los últimos y llama a git_commit. El usuario lo confirma "
                "antes de que se ejecute. No hagas nada más con git.",
@@ -908,11 +909,11 @@ PROMPT = {
         "limitsWrite": "No puedes ejecutar comandos ni tocar nada fuera de {repo}: si te lo piden, explica cómo hacerlo.",
         "about": "NIHIL: SUPER+Espacio abre el launcher (> acciones, = calculadora, ? tú); SUPER+D el dashboard; "
                  "SUPER+P los ajustes; {summon} te abren a ti. La configuración está en {flake} y se aplica con "
-                 "`sudo nixos-rebuild switch --flake {flake}#{host}`.",
+                 "`{apply}`.",
         "summon": "SUPER+I y la tecla Copilot",
     },
     "en": {
-        "intro": "You are Nilo, the assistant of NIHIL, {user}'s NixOS desktop. You run on this computer with {model} "
+        "intro": "You are Nilo, the assistant of NIHIL, {user}'s {os} desktop. You run on this computer with {model} "
                  "(Ollama): what is said here never leaves it{web}.",
         "webOut": ", except the web searches you make",
         "now": "It is {weekday}, {month} {day}, {year}, {time}.",
@@ -925,7 +926,7 @@ PROMPT = {
                "know, search with web_search and read with open_url if needed. End with the sources as Markdown "
                "links.",
         "noWeb": "You have no internet access: if something may have changed, say so.",
-        "system": "system_info gives you real facts about this computer (NixOS, memory, disk, battery).",
+        "system": "system_info gives you real facts about this computer ({os}, memory, disk, battery).",
         "git": "The repository is {repo}. When asked to save or push the changes: look at git_status, write a short "
                "commit message in the style of the latest ones and call git_commit. The user confirms it before it "
                "runs. Do nothing else with git.",
@@ -936,10 +937,13 @@ PROMPT = {
         "limitsWrite": "You cannot run commands or touch anything outside {repo}: if asked to, explain how to do it.",
         "about": "NIHIL: SUPER+Space opens the launcher (> actions, = calculator, ? you); SUPER+D the dashboard; "
                  "SUPER+P the settings; {summon} open you. The configuration lives in {flake} and is applied with "
-                 "`sudo nixos-rebuild switch --flake {flake}#{host}`.",
+                 "`{apply}`.",
         "summon": "SUPER+I and the Copilot key",
     },
 }
+
+
+OS_NAMES = {"nixos": "NixOS", "fedora": "Fedora"}
 
 
 def build_prompt(config, settings, now=None):
@@ -950,8 +954,14 @@ def build_prompt(config, settings, now=None):
         user = pwd.getpwuid(os.getuid()).pw_name
     except KeyError:
         user = os.environ.get("USER", "")
+    # home/nilo/default.nix says where NIHIL runs and how its configuration is
+    # applied (nixos-rebuild on NixOS, Home Manager elsewhere: FEDORA.md).
+    system = OS_NAMES.get(config.get("platform", "nixos"), "Linux")
+    flake = config.get("flake", "~/nixos-config")
+    apply = config.get("apply") or f"sudo nixos-rebuild switch --flake {flake}#{config.get('host', '')}"
     lines = [
-        text["intro"].format(user=user, model=settings["model"], web=text["webOut"] if settings["web"] else ""),
+        text["intro"].format(user=user, os=system, model=settings["model"],
+                             web=text["webOut"] if settings["web"] else ""),
         text["now"].format(weekday=DAYS[language][now.weekday()], day=now.day, month=MONTHS[language][now.month - 1],
                            year=now.year, time=now.strftime("%H:%M")),
         "",
@@ -959,15 +969,14 @@ def build_prompt(config, settings, now=None):
     rules = list(text["rules"])
     rules.append(text["web"] if settings["web"] else text["noWeb"])
     if settings["system"]:
-        rules.append(text["system"])
+        rules.append(text["system"].format(os=system))
     if settings["git"]:
         rules.append(text["git"].format(repo=settings["repo"]))
     if settings.get("write"):
         rules.append(text["write"].format(repo=settings["repo"]))
     rules.append(text["limitsWrite" if settings.get("write") else "limits"].format(repo=settings["repo"]))
     lines += [f"- {rule}" for rule in rules]
-    lines += ["", text["about"].format(summon=config.get("summon") or text["summon"],
-                                       flake=config.get("flake", "~/nixos-config"), host=config.get("host", ""))]
+    lines += ["", text["about"].format(summon=config.get("summon") or text["summon"], flake=flake, apply=apply)]
     return "\n".join(lines)
 
 

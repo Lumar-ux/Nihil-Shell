@@ -826,6 +826,15 @@ class UnitTest(unittest.TestCase):
                                      now=datetime.datetime(2026, 10, 29, 21, 30))
         self.assertIn("Thursday, October 29, 2026, 21:30", english)
         self.assertIn("no internet access", english)
+        self.assertIn("NixOS desktop", english)
+        fedora = agent.build_prompt({"language": "en", "platform": "fedora", "host": "lumaroy", "flake": "~/nihil",
+                                     "apply": "home-manager switch --flake ~/nihil#lumaroy@lumaroy"},
+                                    settings, now=datetime.datetime(2026, 10, 29, 21, 30))
+        self.assertIn("'s Fedora desktop", fedora)
+        self.assertIn("(Fedora, memory, disk, battery)", fedora)
+        self.assertIn("`home-manager switch --flake ~/nihil#lumaroy@lumaroy`", fedora)
+        self.assertNotIn("nixos-rebuild", fedora)
+        self.assertNotIn("NixOS", fedora)
 
     def test_recommended_model(self):
         a = agent.Agent.__new__(agent.Agent)
