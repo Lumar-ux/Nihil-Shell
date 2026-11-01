@@ -26,8 +26,9 @@
 		./home/fastfetch.nix
 	];
 
-	home.username = "poligle";
-	home.homeDirectory = "/home/poligle";
+	# Defaults: a standalone Home Manager host (FEDORA.md) sets its own user.
+	home.username = lib.mkDefault "poligle";
+	home.homeDirectory = lib.mkDefault "/home/poligle";
 	home.stateVersion = "26.05";
 	programs.home-manager.enable = true;
 

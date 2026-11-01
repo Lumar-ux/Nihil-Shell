@@ -13,9 +13,9 @@
 #   nihil-ipc nilo toggle                (Nilo, modules/nilo.nix)
 #   journalctl --user -u nihil-shell -f  (logs)
 
-{ config, osConfig, pkgs, lib, ... }:
+{ config, pkgs, lib, ... }:
 let
-	nihil = osConfig.nihil;
+	nihil = config.nihil;
 	t = nihil.tokens;
 	quickshell = pkgs.quickshell;
 	profile = "${config.home.profileDirectory}/bin";
@@ -25,7 +25,7 @@ let
 	nilo =
 	{
 		enabled = nihil.nilo.enable;
-		agent = lib.optionalString nihil.nilo.enable "${import ./nilo { inherit pkgs lib osConfig; }}/bin/nilo-agent";
+		agent = lib.optionalString nihil.nilo.enable "${import ./nilo { inherit pkgs lib nihil; }}/bin/nilo-agent";
 	};
 
 	tokensQml = pkgs.writeText "Tokens.qml" ''
@@ -96,11 +96,10 @@ let
 		cava = "${pkgs.cava}/bin/cava";
 		qalc = "${pkgs.libqalculate}/bin/qalc";
 		wlCopy = "${pkgs.wl-clipboard}/bin/wl-copy";
-		systemctl = "${pkgs.systemd}/bin/systemctl";
-		uwsm = "${osConfig.programs.uwsm.package}/bin/uwsm";
+		inherit (nihil.hostPrograms) systemctl uwsm;
 		pavucontrol = "${pkgs.pavucontrol}/bin/pavucontrol";
 		blueman = "${pkgs.blueman}/bin/blueman-manager";
-		terminal = "${profile}/kitty";
+		terminal = if nihil.terminal != null then nihil.terminal else "${profile}/kitty";
 		lock = "${profile}/lock-screen";
 		powerOff = "${profile}/power-off";
 		micLedSync = "${profile}/mic-led-sync";

@@ -1,14 +1,20 @@
 # hyprland.nix by poligle
 
-{ config, osConfig, pkgs, lib, ... }:
+{ config, pkgs, lib, ... }:
 let
 	lua = lib.generators.mkLuaInline;
-	t = osConfig.nihil.tokens;
-	sound = osConfig.nihil.sounds;
+	t = config.nihil.tokens;
+	sound = config.nihil.sounds;
 	rgb = hex: "rgb(${hex})";
 
-	internalPanel = "eDP-1";
-	verticalPanel = "DP-1";
+	# Outputs come from the host (nihil.outputs): nothing here names a connector.
+	internalPanel = config.nihil.internalOutput;
+	verticalPanel = config.nihil.verticalOutput;
+	monitorRule = output: settings:
+	{
+		inherit output;
+		inherit (settings) mode position scale transform;
+	} // lib.optionalAttrs (output == internalPanel) { disabled = false; };
 	playSound = file: "${pkgs.pipewire}/bin/pw-play --volume 0.4 ${file}";
 
 	bind = key: action: { _args = [ key (lua action) ]; };
@@ -22,7 +28,7 @@ let
 	# (Linux 6.14 and later). Its name depends on xkeyboard-config (recent
 	# ones say XF86Assistant, older ones XF86TouchpadOff), so the bind goes
 	# by the keycode wev shows: 201. One bind only, or a press would toggle twice.
-	niloBinds = lib.optionals osConfig.nihil.nilo.enable
+	niloBinds = lib.optionals config.nihil.nilo.enable
 	[
 		(bind "SUPER + I" (exec "nihil-ipc nilo toggle"))
 		(bind "SUPER + SHIFT + code:201" (exec "nihil-ipc nilo toggle"))
@@ -135,15 +141,9 @@ in
 			# Shared with the shell, for the apps opened from the launcher.
 			env = lib.mapAttrsToList envVar (import ./session-env.nix);
 
-			monitor =
-			[
-				{ output = "Virtual-1"; mode = "3840x2160@60"; position = "0x0"; scale = 1; transform = 0; }
-				{ output = "HDMI-A-1"; mode = "preferred"; position = "0x0"; scale = 1; transform = 0; }
-				{ output = verticalPanel; mode = "1920x1080@165"; position = "2560x-240"; scale = 1; transform = 3; }
-				{ output = internalPanel; mode = "preferred"; position = "auto"; scale = 1; transform = 0; disabled = false; }
-			];
+			monitor = lib.mapAttrsToList monitorRule config.nihil.outputs;
 
-			workspace_rule =
+			workspace_rule = lib.optionals (verticalPanel != null)
 			[
 				{ workspace = "m[${verticalPanel}]"; layout_opts.orientation = "top"; }
 			];

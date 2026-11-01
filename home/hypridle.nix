@@ -1,9 +1,10 @@
 # hypridle.nix by poligle
 
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 let
+	host = config.nihil.hostPrograms;
 	brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
-	dpms = state: "${pkgs.hyprland}/bin/hyprctl dispatch 'hl.dsp.dpms({ action = \"${state}\" })'";
+	dpms = state: "${host.hyprctl} dispatch 'hl.dsp.dpms({ action = \"${state}\" })'";
 in
 {
 	services.hypridle =
@@ -14,7 +15,7 @@ in
 		{
 			general =
 			{
-				lock_cmd = "pidof hyprlock || ${pkgs.hyprlock}/bin/hyprlock";
+				lock_cmd = "pidof hyprlock || ${host.hyprlock}";
 				before_sleep_cmd = "loginctl lock-session";
 				after_sleep_cmd = dpms "on";
 			};

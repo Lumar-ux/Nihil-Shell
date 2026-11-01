@@ -5,23 +5,21 @@
 # the shell starts it the first time Nilo opens and talks to it over
 # stdin/stdout. Tests: python3 -m unittest home/nilo/test_agent.py
 
-{ pkgs, lib, osConfig }:
+# `nihil` is Home Manager's config.nihil (modules/nihil-options.nix).
+{ pkgs, lib, nihil }:
 let
-    nihil = osConfig.nihil;
-    ollama = osConfig.services.ollama;
-
     config = pkgs.writeText "nilo.json" (builtins.toJSON
     {
-        ollama = "http://${ollama.host}:${toString ollama.port}";
+        ollama = nihil.nilo.ollamaUrl;
         inherit (nihil) language;
         inherit (nihil.nilo) models contextLength searxng;
         ddgr = "${pkgs.ddgr}/bin/ddgr";
         git = "${pkgs.git}/bin/git";
-        host = osConfig.networking.hostName;
-        flake = "~/nixos-config";
+        host = nihil.hostName;
+        inherit (nihil.nilo) flake;
         # To start Ollama when it is down, and say why it won't (modules/nilo.nix).
-        systemctl = "${osConfig.systemd.package}/bin/systemctl";
-        journalctl = "${osConfig.systemd.package}/bin/journalctl";
+        # The host's own systemd: only it talks to the PID 1.
+        inherit (nihil.hostPrograms) systemctl journalctl;
         ollamaUnit = "ollama.service";
     });
 in

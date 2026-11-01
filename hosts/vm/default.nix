@@ -35,7 +35,8 @@
 	services.qemuGuest.enable = true;
 
     # NIHIL: outputs at their logical size (after rotation), so the
-    # dot-matrix wallpapers land on exact pixels. DP-1 is the vertical panel.
+    # dot-matrix wallpapers land on exact pixels, plus their Hyprland mode
+    # and position. A QEMU guest has one output, Virtual-1.
     nihil =
     {
         primaryOutput = "Virtual-1";
@@ -43,7 +44,7 @@
         language = "en";
         outputs =
         {
-            "Virtual-1"    = { width = 3840; height = 2160; };
+            "Virtual-1" = { width = 3840; height = 2160; mode = "3840x2160@60"; position = "0x0"; };
         };
 
         # Nilo on the Radeon of the Ryzen, through Vulkan. Set enable = false

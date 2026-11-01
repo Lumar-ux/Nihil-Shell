@@ -1,9 +1,9 @@
 # engineering.nix by poligle
 
-{ config, osConfig, pkgs, lib, ... }:
+{ config, pkgs, lib, ... }:
 let
 	# Messages in the language of the build (theme/i18n.nix).
-	say = key: args: lib.replaceStrings [ "%1" "%2" ] (lib.take 2 (args ++ [ "" "" ])) osConfig.nihil.strings.${key};
+	say = key: args: lib.replaceStrings [ "%1" "%2" ] (lib.take 2 (args ++ [ "" "" ])) config.nihil.strings.${key};
 
 	installRoot = "${config.home.homeDirectory}/eda";
 	systemLibstdcxx = "${pkgs.stdenv.cc.cc.lib}/lib/libstdc++.so.6";
@@ -202,20 +202,30 @@ let
 	};
 in
 {
-	home.packages =
-	[
-		edaFhs
-		matlab
-		matlab-install
-		feko
-		ads
-	];
-
-	xdg.desktopEntries =
+	options.nihil.apps.engineering.enable = lib.mkOption
 	{
-		matlab = application "MATLAB" "matlab -desktop" "matlab";
-		cadfeko = application "CADFEKO" "feko cadfeko" "/home/poligle/.icons/feko.svg";
-		postfeko = application "POSTFEKO" "feko postfeko" "com.github.alexhuntley.Plots";
-		ads = application "Keysight ADS" "ads" "gtkwave";
+		type = lib.types.bool;
+		default = true;
+		description = "Whether Home Manager sets up the engineering suite (MATLAB, FEKO, ADS). A host that keeps its own dotfiles for it turns this off.";
+	};
+
+	config = lib.mkIf config.nihil.apps.engineering.enable
+	{
+		home.packages =
+		[
+			edaFhs
+			matlab
+			matlab-install
+			feko
+			ads
+		];
+
+		xdg.desktopEntries =
+		{
+			matlab = application "MATLAB" "matlab -desktop" "matlab";
+			cadfeko = application "CADFEKO" "feko cadfeko" "/home/poligle/.icons/feko.svg";
+			postfeko = application "POSTFEKO" "feko postfeko" "com.github.alexhuntley.Plots";
+			ads = application "Keysight ADS" "ads" "gtkwave";
+		};
 	};
 }

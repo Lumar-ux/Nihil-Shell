@@ -31,16 +31,18 @@
     networking.hostName = "thinkpad";
 
     # NIHIL: outputs at their logical size (after rotation), so the
-    # dot-matrix wallpapers land on exact pixels. DP-1 is the vertical panel.
+    # dot-matrix wallpapers land on exact pixels, plus their Hyprland mode,
+    # position and transform. DP-1 is the vertical panel.
     nihil =
     {
         primaryOutput = "eDP-1";
+        verticalOutput = "DP-1";
         wallpaper = "night";
         outputs =
         {
             "eDP-1"    = { width = 1920; height = 1200; };
-            "HDMI-A-1" = { width = 2560; height = 1440; };
-            "DP-1"     = { width = 1080; height = 1920; bar = false; };
+            "HDMI-A-1" = { width = 2560; height = 1440; position = "0x0"; };
+            "DP-1"     = { width = 1080; height = 1920; bar = false; mode = "1920x1080@165"; position = "2560x-240"; transform = 3; };
         };
 
         # Nilo on the Radeon of the Ryzen, through Vulkan. Set enable = false

@@ -3,14 +3,14 @@
 # Scripts bound to keys. The OSD ones change the value and report it to the
 # NIHIL shell, which draws it on the frame (nihil-ipc osd ...).
 
-{ config, osConfig, pkgs, lib, ... }:
+{ config, pkgs, lib, ... }:
 let
 	ipc = "${config.home.profileDirectory}/bin/nihil-ipc";
 	wpctl = "${pkgs.wireplumber}/bin/wpctl";
 	grep = "${pkgs.gnugrep}/bin/grep";
 	awk = "${pkgs.gawk}/bin/awk";
 	brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
-	sound = osConfig.nihil.sounds;
+	sound = config.nihil.sounds;
 	volumeSound = sound.volume;
 
 	mic-led-sync = pkgs.writeShellScriptBin "mic-led-sync" ''
@@ -86,12 +86,12 @@ let
 
 	lock-screen = pkgs.writeShellScriptBin "lock-screen" ''
 		${pkgs.pipewire}/bin/pw-play --volume 0.4 ${sound.lock} &
-		exec ${pkgs.hyprlock}/bin/hyprlock
+		exec ${config.nihil.hostPrograms.hyprlock}
 	'';
 
 	power-off = pkgs.writeShellScriptBin "power-off" ''
 		${pkgs.pipewire}/bin/pw-play --volume 0.5 ${sound.power}
-		exec ${pkgs.systemd}/bin/systemctl poweroff
+		exec ${config.nihil.hostPrograms.systemctl} poweroff
 	'';
 in
 {

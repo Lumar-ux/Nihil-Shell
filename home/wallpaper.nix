@@ -4,10 +4,10 @@
 # size. `nihil-wallpaper` switches between them at runtime and remembers the
 # choice:  nihil-wallpaper [restore|next|prev|set <name>|list|current]
 
-{ config, osConfig, pkgs, lib, ... }:
+{ config, pkgs, lib, ... }:
 let
-	nihil = osConfig.nihil;
-	hyprctl = "${osConfig.programs.hyprland.package}/bin/hyprctl";
+	nihil = config.nihil;
+	hyprctl = nihil.hostPrograms.hyprctl;
 
 	nihil-wallpaper = pkgs.writeShellScriptBin "nihil-wallpaper" ''
 		set -euo pipefail

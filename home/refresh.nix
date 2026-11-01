@@ -4,9 +4,9 @@
 # notice that hyprland.lua now points to a new store path. The NIHIL shell is
 # a systemd user service, so Home Manager restarts it on its own.
 
-{ config, osConfig, pkgs, lib, ... }:
+{ config, pkgs, lib, ... }:
 let
-	hyprctl = "${osConfig.programs.hyprland.package}/bin/hyprctl";
+	hyprctl = config.nihil.hostPrograms.hyprctl;
 
 	forEachHyprland = command: ''
 		(

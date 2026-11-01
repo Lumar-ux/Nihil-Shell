@@ -1,8 +1,8 @@
 # hyprlock.nix by poligle
 
-{ config, osConfig, pkgs, lib, ... }:
+{ config, pkgs, lib, ... }:
 let
-	nihil = osConfig.nihil;
+	nihil = config.nihil;
 	t = nihil.tokens;
 	s = nihil.strings;
 	rgb = hex: "rgb(${hex})";

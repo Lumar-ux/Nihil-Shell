@@ -1,39 +1,49 @@
 # vscode.nix by poligle
 
-{ osConfig, pkgs, ... }:
+{ config, pkgs, lib, ... }:
 let
-    foreground = "#${osConfig.nihil.tokens.base16.base05}";
+    foreground = "#${config.nihil.tokens.base16.base05}";
 in
 {
-    programs.vscode = 
+    options.nihil.apps.vscode.enable = lib.mkOption
     {
-        enable = true;
-        package = pkgs.vscode.fhs;
+        type = lib.types.bool;
+        default = true;
+        description = "Whether Home Manager sets up VS Code with the NIHIL theme. A host that keeps its own dotfiles for it turns this off.";
+    };
 
-        profiles.default.extensions = with pkgs.vscode-extensions; 
-        [
-            ms-python.python
-            ms-toolsai.jupyter
-        ];
-
-        profiles.default.userSettings = 
+    config = lib.mkIf config.nihil.apps.vscode.enable
+    {
+        programs.vscode = 
         {
-            "python.defaultInterpreterPath" = "~/.nix-profile/bin/python";
+            enable = true;
+            package = pkgs.vscode.fhs;
 
-            # NIHIL: red (base08) is reserved for errors, so variables and
-            # tags use the plain foreground instead.
-            "editor.tokenColorCustomizations".textMateRules =
+            profiles.default.extensions = with pkgs.vscode-extensions; 
             [
-                {
-                    scope = [ "variable" "variable.other" "variable.parameter" "support.variable" "entity.name.tag" "meta.definition.variable" ];
-                    settings.foreground = foreground;
-                }
+                ms-python.python
+                ms-toolsai.jupyter
             ];
-            "editor.semanticTokenColorCustomizations".rules =
+
+            profiles.default.userSettings = 
             {
-                variable = foreground;
-                parameter = foreground;
-                property = foreground;
+                "python.defaultInterpreterPath" = "~/.nix-profile/bin/python";
+
+                # NIHIL: red (base08) is reserved for errors, so variables and
+                # tags use the plain foreground instead.
+                "editor.tokenColorCustomizations".textMateRules =
+                [
+                    {
+                        scope = [ "variable" "variable.other" "variable.parameter" "support.variable" "entity.name.tag" "meta.definition.variable" ];
+                        settings.foreground = foreground;
+                    }
+                ];
+                "editor.semanticTokenColorCustomizations".rules =
+                {
+                    variable = foreground;
+                    parameter = foreground;
+                    property = foreground;
+                };
             };
         };
     };

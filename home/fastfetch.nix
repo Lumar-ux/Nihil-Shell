@@ -3,7 +3,7 @@
 # fastfetch in the NIHIL language: the NixOS snowflake drawn with LED dots
 # (theme/art/snowflake-19.txt) and monochrome, uppercase keys.
 
-{ config, osConfig, pkgs, lib, ... }:
+{ config, pkgs, lib, ... }:
 let
 	# Empty rows are dropped: the logo's padding sets the spacing instead.
 	grid = lib.filter (row: lib.any (cell: cell != "0") (lib.stringToCharacters row))
